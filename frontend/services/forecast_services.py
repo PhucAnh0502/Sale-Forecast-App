@@ -1,11 +1,16 @@
+from importlib.resources import files
+from urllib import response
 from .api_client import APIClient
 
 class ForecastService:
     def __init__(self):
         self.client = APIClient()
 
-    def upload_data(self, file):
-        files = {"file": (file.name, file.getvalue(), file.type)}
+    def upload_data(self, uploaded_files):
+        files = [
+        ("files", (file.name, file.getvalue(), file.type)) 
+        for file in uploaded_files
+        ]
         response = self.client.post_file("/upload-raw-data", files=files)
         return response.json() if response.status_code == 200 else None
     

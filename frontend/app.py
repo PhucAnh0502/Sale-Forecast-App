@@ -20,13 +20,18 @@ tab_data, tab_train, tab_predict, tab_admin = st.tabs([
 
 with tab_data:
     st.header("Data Upload & Processing")
-    c1, c2 = st.columns([1, 1])
-    with c1:
-        uploaded_file = st.file_uploader("Drag and drop data file (PDF, CSV, XLSX)", type=["pdf", "csv", "xlsx"])
-        if uploaded_file and st.button("Start Ingestion", type="primary"):
-            with st.spinner("Uploading data to S3 Raw..."):
-                res = forecast_service.upload_data(uploaded_file)
-                st.success(f"Uploaded to: {res['s3_uri']}")
+    uploaded_files = st.file_uploader(
+        "Drag and drop data files (PDF, CSV, XLSX)", 
+        type=["pdf", "csv", "xlsx"], 
+        accept_multiple_files=True
+    )
+    if uploaded_files and st.button("Start Ingestion", type="primary"):
+        with st.spinner(f"Đang tải {len(uploaded_files)} file lên S3 Raw..."):
+            res = forecast_service.upload_data(uploaded_files)
+            if res:
+                st.success(res["message"])
+                for item in res["data"]:
+                    st.write(f"{item['filename']} -> `{item['s3_uri']}`")
 
 with tab_train:
     st.header("ML Pipeline Orchestration")

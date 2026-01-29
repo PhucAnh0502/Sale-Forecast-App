@@ -1,0 +1,66 @@
+.stApp {
+    background-color: #f8f9fa;
+}
+
+[data-testid="stHeader"] {
+    background-color: rgba(255, 255, 255, 0.95);
+    border-bottom: 1px solid #e9ecef;
+}
+
+h1 {
+    color: #1a202c;
+    font-weight: 700 !important;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    padding-bottom: 10px;
+}
+
+h2 {
+    color: #4a5568;
+    font-size: 1.5rem !important;
+    border-left: 5px solid #007bff;
+    padding-left: 15px;
+    margin-bottom: 20px !important;
+}
+
+div.stButton > button {
+    width: 100%;
+    border-radius: 8px;
+    height: 3.5em;
+    background-color: #ffffff;
+    color: #007bff;
+    border: 2px solid #007bff;
+    font-weight: 600;
+    transition: all 0.3s ease-in-out;
+}
+
+div.stButton > button:hover {
+    background-color: #007bff !important;
+    color: white !important;
+    transform: translateY(-3px);
+    box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
+}
+
+[data-testid="stFileUploader"] {
+    background-color: #ffffff;
+    padding: 20px;
+    border-radius: 12px;
+    border: 1px dashed #cbd5e0;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+div.stButton:nth-of-type(1) > button {
+    border-color: #28a745;
+    color: #28a745;
+}
+div.stButton:nth-of-type(1) > button:hover {
+    background-color: #28a745 !important;
+}
+
+hr {
+    margin-top: 2rem;
+    margin-bottom: 2rem;
+    border: 0;
+    border-top: 2px solid #e2e8f0;
+}
+

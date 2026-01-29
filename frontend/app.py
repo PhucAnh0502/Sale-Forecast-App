@@ -40,34 +40,34 @@ with tab_train:
 with tab_predict:
     st.header("Batch Prediction")
     
+    approved_models = model_service.get_approved_models()
+    s3_files = forecast_service.get_s3_inputs()
+
     col_sel1, col_sel2 = st.columns(2)
     
     with col_sel1:
-        model_options = {
-            "Model 1": "arn:aws:sagemaker:ap-southeast-1:123456789012:model/sales-v1",
-            "Model 2": "arn:aws:sagemaker:ap-southeast-1:123456789012:model/sales-v1-1"
-        }
-        selected_model_name = st.selectbox("Select Model", options=list(model_options.keys()))
-        selected_model_arn = model_options[selected_model_name]
+        if approved_models:
+            model_map = {f"Model {m['name']} ({m['creation_time']})": m['arn'] for m in approved_models}
+            selected_model_label = st.selectbox("Select Approved Model", options=list(model_map.keys()))
+            selected_model_arn = model_map[selected_model_label]
+        else:
+            st.warning("No approved models found.")
+            selected_model_arn = None
         
     with col_sel2:
-        input_options = [
-            "s3://processed-data-bucket/data_january.parquet",
-            "s3://processed-data-bucket/data_february.parquet"
-        ]
-        selected_input_path = st.selectbox("Select Input Data (S3)", options=input_options)
+        if s3_files:
+            selected_input_path = st.selectbox("Select Input Dataset (S3)", options=s3_files)
+        else:
+            st.warning("No processed files found on S3.")
+            selected_input_path = None
     
-    if st.button("Execute Forecast", type="primary"):
-        with st.spinner("Sending forecast request to the system..."):
+    if st.button("Execute Forecast", type="primary", disabled=not (selected_model_arn and selected_input_path)):
+        with st.spinner("Initializing SageMaker Batch Transform..."):
             res = forecast_service.batch_prediction(selected_model_arn, selected_input_path)
-            
             if res:
-                st.success("Forecast request has been accepted!")
+                st.success("Job created successfully!")
                 st.info(f"**Job Name:** {res['details']['TransformJobName']}")
-                st.write(f"Results will be saved at: `{res['details']['OutputS3']}`")
-                st.toast("Batch Transform Job has been started.")
-            else:
-                st.error("Error: Unable to connect to Predict API or invalid parameters.")
+                st.write(f"Results will be saved to: `{res['details']['OutputS3']}`")
 
 with tab_admin:
     st.header("Model Governance")

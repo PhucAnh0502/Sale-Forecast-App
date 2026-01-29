@@ -14,6 +14,10 @@ class ModelRequest(BaseModel):
 async def list_pending_models(service: ModelService = Depends(get_model_service)):
     return await service.list_pending_models()
 
+@router.get("/approved")
+async def list_approved_models(service: ModelService = Depends(get_model_service)):
+    return await service.list_approved_models()
+
 @router.post("/approve")
 async def approve_model(request: ModelRequest, service: ModelService = Depends(get_model_service)):
     return await service.update_model_status(

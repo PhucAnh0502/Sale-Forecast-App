@@ -34,3 +34,11 @@ class ForecastService:
             output_s3_uri=output_path
         )
         return job_info
+    
+    async def list_s3_inputs(self):
+        response = self.s3_client.list_objects_v2(Bucket=self.feature_store_bucket, Prefix='/')
+        s3_inputs = []
+        if 'Contents' in response:
+            for obj in response['Contents']:
+                s3_inputs.append(f"s3://{self.feature_store_bucket}/{obj['Key']}")
+        return s3_inputs

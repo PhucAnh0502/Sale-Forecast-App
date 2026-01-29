@@ -25,3 +25,7 @@ class ForecastService:
         }
         response = self.client.post_json("/predict", json_data=payload)
         return response.json() if response.status_code == 200 else None
+    
+    def get_s3_inputs(self):
+        response = self.client.get_json("/s3-inputs")
+        return response.json() if response.status_code == 200 else None

@@ -29,6 +29,28 @@ class ModelService:
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
         
+    async def list_approved_models(self):
+        try:
+            response = self.sm_client.list_model_packages(
+                ModelPackageGroupName=self.group_name,
+                ModelApprovalStatus='Approved',
+                SortBy='CreationTime',
+                SortOrder='Descending'
+            )
+
+            approved_models = [
+                {
+                    "name": m['ModelPackageName'],
+                    "version": m['ModelPackageVersion'],
+                    "arn": m['ModelPackageArn'],
+                    "creation_time": m['CreationTime'].strftime("%Y-%m-%d %H:%M:%S")
+                }
+                for m in response['ModelPackageSummaryList']
+            ]
+            return {"approved_models": approved_models}
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+        
     async def update_model_status(self, model_arn: str, status: str, comment: str):
         try:
             response = self.sm_client.update_model_package(

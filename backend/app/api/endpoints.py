@@ -29,3 +29,8 @@ async def train(service: ForecastService = Depends(get_forecast_service)):
 async def predict(request: PredictRequest, service: ForecastService = Depends(get_forecast_service)):
     job_info = await service.execute_batch_prediction(request.model_arn, request.input_s3_path)
     return {"message": "Prediction job created", "details": job_info}
+
+@router.get("/s3-inputs")
+async def list_s3_inputs(service: ForecastService = Depends(get_forecast_service)):
+    s3_inputs = await service.list_s3_inputs()
+    return {"s3_inputs": s3_inputs}

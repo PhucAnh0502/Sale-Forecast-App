@@ -8,6 +8,8 @@ def _import_sagemaker():
         from sagemaker.workflow.steps import TrainingStep, ProcessingStep
         from sagemaker.workflow.pipeline import Pipeline
         from sagemaker.workflow.properties import PropertyFile
+        from sagemaker.workflow.lambda_step import LambdaStep, LambdaOutput, LambdaOutputTypeEnum
+        from sagemaker.lambda_helper import Lambda
         from sagemaker.xgboost.estimator import XGBoost
         from sagemaker.inputs import TrainingInput
         from sagemaker.model import Model
@@ -33,13 +35,17 @@ def _import_sagemaker():
         ProcessingOutput,
         MetricsSource,
         ModelMetrics,
+        LambdaStep,
+        LambdaOutput,
+        LambdaOutputTypeEnum,
+        Lambda,
     )
 
 class PipelineOrchestrator:
     def __init__(self, region):
         self.region = region
         self.role = os.environ.get('SAGEMAKER_ROLE_ARN')
-        self.bucket = os.environ.get('S3_PROCESSED_DATA_BUCKET')
+        self.bucket = os.environ.get('S3_ARTIFACTS_BUCKET')
         (PipelineSession, *_rest) = _import_sagemaker()
         self.pipeline_session = PipelineSession()
 
@@ -59,7 +65,29 @@ class PipelineOrchestrator:
             ProcessingOutput,
             MetricsSource,
             ModelMetrics,
+            LambdaStep,
+            LambdaOutput,
+            LambdaOutputTypeEnum,
+            Lambda,
         ) = _import_sagemaker()
+
+        func_glue_trigger = Lambda(
+            function_arn=os.environ.get('GLUE_TRIGGER_LAMBDA_ARN'),
+        )
+
+        step_glue = LambdaStep(
+            name="TriggerGlueFeatureEngineering",
+            lambda_func=func_glue_trigger,
+            inputs={
+                "glue_job_name": "feature-engineering-job",
+            },
+            outputs=[
+                LambdaOutput(
+                    output_name="status",
+                    output_type=LambdaOutputTypeEnum.String
+                )
+            ]
+        )
 
         xgb_train = XGBoost(
             entry_point="train.py",
@@ -80,7 +108,8 @@ class PipelineOrchestrator:
                     s3_data=f"{s3_feature_store_uri}/train/",
                     content_type="application/x-parquet"
                 )
-            }
+            },
+            depends_on=[step_glue]
         )
 
         script_eval = ScriptProcessor(
@@ -151,7 +180,7 @@ class PipelineOrchestrator:
 
         pipeline = Pipeline(
             name=pipeline_name,
-            steps=[step_train, step_eval, step_register],
+            steps=[step_glue, step_train, step_eval, step_register],
             sagemaker_session=self.pipeline_session,
         )
 

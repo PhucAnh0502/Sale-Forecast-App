@@ -44,7 +44,7 @@ def _import_sagemaker():
 class PipelineOrchestrator:
     def __init__(self, region):
         self.region = region
-        self.role = os.environ.get('SAGEMAKER_ROLE_ARN')
+        self.role = os.environ.get('SM_ROLE_ARN')
         self.bucket = os.environ.get('S3_ARTIFACTS_BUCKET')
         (PipelineSession, *_rest) = _import_sagemaker()
         self.pipeline_session = PipelineSession()

@@ -1,66 +1,38 @@
 .stApp {
-    background-color: #f8f9fa;
+    background-color: #f4f7f9;
+    font-family: 'Inter', sans-serif;
 }
 
 [data-testid="stHeader"] {
-    background-color: rgba(255, 255, 255, 0.95);
-    border-bottom: 1px solid #e9ecef;
-}
-
-h1 {
-    color: #1a202c;
-    font-weight: 700 !important;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    padding-bottom: 10px;
-}
-
-h2 {
-    color: #4a5568;
-    font-size: 1.5rem !important;
-    border-left: 5px solid #007bff;
-    padding-left: 15px;
-    margin-bottom: 20px !important;
-}
-
-div.stButton > button {
-    width: 100%;
-    border-radius: 8px;
-    height: 3.5em;
     background-color: #ffffff;
-    color: #007bff;
-    border: 2px solid #007bff;
-    font-weight: 600;
-    transition: all 0.3s ease-in-out;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
 }
 
-div.stButton > button:hover {
-    background-color: #007bff !important;
-    color: white !important;
-    transform: translateY(-3px);
-    box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
+div[data-testid="stVerticalBlock"] > div.element-container {
+    background: white;
+    padding: 1rem;
+    border-radius: 10px;
+    margin-bottom: 1rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
 }
 
-[data-testid="stFileUploader"] {
-    background-color: #ffffff;
-    padding: 20px;
-    border-radius: 12px;
-    border: 1px dashed #cbd5e0;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+button {
+    border-radius: 6px !important;
+    font-weight: 500 !important;
+    text-transform: none !important;
 }
 
-div.stButton:nth-of-type(1) > button {
-    border-color: #28a745;
-    color: #28a745;
-}
-div.stButton:nth-of-type(1) > button:hover {
+div.stButton > button[kind="primary"] {
     background-color: #28a745 !important;
+    border: none !important;
 }
 
-hr {
-    margin-top: 2rem;
-    margin-bottom: 2rem;
-    border: 0;
-    border-top: 2px solid #e2e8f0;
+div.stButton > button[kind="secondary"] {
+    background-color: #dc3545 !important;
+    color: white !important;
+    border: none !important;
 }
 
+.stSelectbox, .stTextInput {
+    border-radius: 8px;
+}

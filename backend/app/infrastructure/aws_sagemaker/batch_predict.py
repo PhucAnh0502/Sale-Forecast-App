@@ -18,7 +18,7 @@ class BatchPredictor:
             Containers=[{
                 'ModelPackageName': model_package_arn,
             }],
-            ExecutionRoleArn=os.environ['SAGEMAKER_ROLE_ARN']
+            ExecutionRoleArn=os.environ['SM_ROLE_ARN']
         )
 
         transform_job_name = f"Batch-Transform-{int(time.time())}"

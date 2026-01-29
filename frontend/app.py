@@ -1,72 +1,89 @@
 import streamlit as st
-import pandas as pd
 import os
 from services.forecast_services import ForecastService
-from dotenv import load_dotenv
+from services.model_services import ModelService
 
-load_dotenv()
-current_dir = os.path.dirname(__file__)
-css_path = os.path.join(current_dir, "assets", "style.css")
 forecast_service = ForecastService()
+model_service = ModelService()
 
-st.set_page_config(
-    page_title="Sale Forecast App",
-    layout="wide",
-)
+st.set_page_config(page_title="Sales Forecast Application", layout="wide")
 
-def local_css(file_name):
-    if os.path.exists(file_name):
-        with open(file_name) as f:
-            st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
-    else:
-        st.warning(f"CSS file '{file_name}' not found.")
+with st.sidebar:
+    st.image("assets/MegazoneLogo.svg", width=200)
+    st.title("Sales Forecast App")
 
-local_css(css_path)
+st.title("Sales Forecast Application Dashboard")
 
-st.title("Sale Forecast Application")
-st.markdown("---")
+tab_data, tab_train, tab_predict, tab_admin = st.tabs([
+    "Data Ingestion", "Model Training", "Inference", "Model Admin"
+])
 
-col_left, col_right = st.columns([1, 2], gap="large")
+with tab_data:
+    st.header("Data Upload & Processing")
+    c1, c2 = st.columns([1, 1])
+    with c1:
+        uploaded_file = st.file_uploader("Drag and drop data file (PDF, CSV, XLSX)", type=["pdf", "csv", "xlsx"])
+        if uploaded_file and st.button("Start Ingestion", type="primary"):
+            with st.spinner("Uploading data to S3 Raw..."):
+                res = forecast_service.upload_data(uploaded_file)
+                st.success(f"Uploaded to: {res['s3_uri']}")
 
-with col_left:
-    st.header("Upload File")
-    uploaded_file = st.file_uploader("Upload your data here", type=["csv", "xlsx", "pdf"])
-    if uploaded_file and st.button("Upload File"):
-        with st.spinner("Uploading file..."):
-            result = forecast_service.upload_data(uploaded_file)
-            if result:
-                st.success(f"S3 URI: {result.get('s3_uri', '')}")
+with tab_train:
+    st.header("ML Pipeline Orchestration")
+    st.info("Press the button below to trigger the Pipeline")
+    if st.button("Run Training Pipeline"):
+        res = forecast_service.trigger_train()
+        st.warning(f"Pipeline Execution ARN: {res['execution_arn']}")
+
+with tab_predict:
+    st.header("Batch Prediction")
+    
+    col_sel1, col_sel2 = st.columns(2)
+    
+    with col_sel1:
+        model_options = {
+            "Model 1": "arn:aws:sagemaker:ap-southeast-1:123456789012:model/sales-v1",
+            "Model 2": "arn:aws:sagemaker:ap-southeast-1:123456789012:model/sales-v1-1"
+        }
+        selected_model_name = st.selectbox("Select Model", options=list(model_options.keys()))
+        selected_model_arn = model_options[selected_model_name]
+        
+    with col_sel2:
+        input_options = [
+            "s3://processed-data-bucket/data_january.parquet",
+            "s3://processed-data-bucket/data_february.parquet"
+        ]
+        selected_input_path = st.selectbox("Select Input Data (S3)", options=input_options)
+    
+    if st.button("Execute Forecast", type="primary"):
+        with st.spinner("Sending forecast request to the system..."):
+            res = forecast_service.batch_prediction(selected_model_arn, selected_input_path)
+            
+            if res:
+                st.success("Forecast request has been accepted!")
+                st.info(f"**Job Name:** {res['details']['TransformJobName']}")
+                st.write(f"Results will be saved at: `{res['details']['OutputS3']}`")
+                st.toast("Batch Transform Job has been started.")
             else:
-                st.error("File upload failed.")
+                st.error("Error: Unable to connect to Predict API or invalid parameters.")
 
-with col_right:
-    st.header("Model Operations")
-    col_btn1, col_btn2, col_btn3 = st.columns(3)
-    with col_btn1:
-        if st.button("Train Model"):
-            with st.spinner("Training model..."):
-                result = forecast_service.trigger_train()
-                if result:
-                    st.success(f"Started: {result.get('execution_arn', '')}")
-                else:
-                    st.error("Model training failed.")
-    with col_btn2:
-        if st.button("Retrain Model"):
-            with st.spinner("Retraining model..."):
-                result = forecast_service.trigger_train()
-                if result:
-                    st.success(f"Started: {result.get('execution_arn', '')}")
-                else:
-                    st.error("Model retraining failed.")
-    with col_btn3:
-        model_arn = st.text_input("Model ARN", "")
-        input_path = st.text_input("Input S3 Path", "")
-        if st.button("Predict"):
-            with st.spinner("Starting batch prediction..."):
-                result = forecast_service.batch_prediction(model_arn, input_path)
-                if result:
-                    st.json(result.get("details", {}))
-                else:
-                    st.error("Batch prediction failed.")
-
-st.markdown("---")
+with tab_admin:
+    st.header("Model Governance")
+    pending = model_service.get_pending_models()
+    
+    if not pending:
+        st.write("No models pending approval.")
+    else:
+        for m in pending:
+            with st.expander(f"Model Version {m['version']} - {m['creation_time']}"):
+                st.write(f"ARN: `{m['arn']}`")
+                cmt = st.text_area("Review Comment", key=f"cmt_{m['version']}")
+                btn_c1, btn_c2 = st.columns(5)
+                with btn_c1:
+                    if st.button("Approve", key=f"app_{m['version']}", type="primary"):
+                        model_service.approve_model(m['arn'], cmt)
+                        st.rerun()
+                with btn_c2:
+                    if st.button("Reject", key=f"rej_{m['version']}", type="secondary"):
+                        model_service.reject_model(m['arn'], cmt)
+                        st.rerun()

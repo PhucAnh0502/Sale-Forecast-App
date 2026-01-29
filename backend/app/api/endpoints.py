@@ -11,7 +11,7 @@ class PredictRequest(BaseModel):
     model_arn: str
     input_s3_path: str
 
-@router.post("/upload-raw-data/")
+@router.post("/upload-raw-data")
 async def upload(file: UploadFile = File(...), service: ForecastService = Depends(get_forecast_service)):
     content = await file.read()
     s3_uri = await service.upload_raw_data(content, file.filename)

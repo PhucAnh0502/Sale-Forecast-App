@@ -1,10 +1,13 @@
 import streamlit as st
-import requests
 import pandas as pd
 import os
+from services.forecast_services import ForecastService
+from dotenv import load_dotenv
 
+load_dotenv()
 current_dir = os.path.dirname(__file__)
 css_path = os.path.join(current_dir, "assets", "style.css")
+forecast_service = ForecastService()
 
 st.set_page_config(
     page_title="Sale Forecast App",
@@ -28,22 +31,42 @@ col_left, col_right = st.columns([1, 2], gap="large")
 with col_left:
     st.header("Upload File")
     uploaded_file = st.file_uploader("Upload your data here", type=["csv", "xlsx", "pdf"])
-    if uploaded_file:
-        st.success("File uploaded successfully!")
-        if st.button("Load to S3 Raw Data Bucket"):
-            st.toast("Uploading to S3...")
+    if uploaded_file and st.button("Upload File"):
+        with st.spinner("Uploading file..."):
+            result = forecast_service.upload_data(uploaded_file)
+            if result:
+                st.success(f"S3 URI: {result.get('s3_uri', '')}")
+            else:
+                st.error("File upload failed.")
 
 with col_right:
     st.header("Model Operations")
     col_btn1, col_btn2, col_btn3 = st.columns(3)
     with col_btn1:
         if st.button("Train Model"):
-            st.toast("Training model...")
+            with st.spinner("Training model..."):
+                result = forecast_service.trigger_train()
+                if result:
+                    st.success(f"Started: {result.get('execution_arn', '')}")
+                else:
+                    st.error("Model training failed.")
     with col_btn2:
         if st.button("Retrain Model"):
-            st.toast("Retraining model...")
+            with st.spinner("Retraining model..."):
+                result = forecast_service.trigger_train()
+                if result:
+                    st.success(f"Started: {result.get('execution_arn', '')}")
+                else:
+                    st.error("Model retraining failed.")
     with col_btn3:
-        if st.button("Predict Sales"):
-            st.toast("Predicting sales...")
+        model_arn = st.text_input("Model ARN", "")
+        input_path = st.text_input("Input S3 Path", "")
+        if st.button("Predict"):
+            with st.spinner("Starting batch prediction..."):
+                result = forecast_service.batch_prediction(model_arn, input_path)
+                if result:
+                    st.json(result.get("details", {}))
+                else:
+                    st.error("Batch prediction failed.")
 
 st.markdown("---")

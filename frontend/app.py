@@ -1,7 +1,7 @@
 import streamlit as st
-import os
 from services.forecast_services import ForecastService
 from services.model_services import ModelService
+import json
 
 forecast_service = ForecastService()
 model_service = ModelService()
@@ -29,13 +29,55 @@ with tab_data:
                 st.success(res["message"])
                 for item in res["data"]:
                     st.write(f"{item['filename']} -> `{item['s3_uri']}`")
+            else:
+                st.error("Failed to upload files. Please check backend connection.")
 
 with tab_train:
     st.header("ML Pipeline Orchestration")
-    st.info("Press the button below to trigger the Pipeline")
+    
     if st.button("Run Training Pipeline"):
-        res = forecast_service.trigger_train()
-        st.warning(f"Pipeline Execution ARN: {res['execution_arn']}")
+        res = forecast_service.trigger_train() 
+        
+        if not res:
+            st.error("Failed to trigger training pipeline. Please check backend connection.")
+        else:
+            execution_arn = res.get('execution_arn')
+            
+            if execution_arn:
+                st.info(f"Pipeline Execution Started")
+                
+                with st.status("Đang thực thi Pipeline...", expanded=True) as status:
+                    response = forecast_service.stream_train_progress(execution_arn)
+                    
+                    if response is None:
+                        st.error("Failed to connect to pipeline stream.")
+                    else:
+                        step_label = st.empty()
+                        
+                        for line in response.iter_lines():
+                            if line:
+                                decoded_line = line.decode('utf-8')
+                                if decoded_line.startswith("data: "):
+                                    data = json.loads(decoded_line[6:])
+                                    steps = data.get('steps', [])
+                                    overall = data.get('overall_status')
+
+                                    for step in steps:
+                                        name = step['step_name']
+                                        s_status = step['status']
+                                        
+                                        if s_status == 'Executing':
+                                            step_label.write(f"Đang chạy: **{name}**")
+                                        elif s_status == 'Succeeded':
+                                            st.write(f"Hoàn thành: **{name}**")
+                                    
+                                    if overall == 'Succeeded':
+                                        status.update(label="Pipeline hoàn thành thành công!", state="complete", expanded=False)
+                                        st.balloons()
+                                        break
+                                    elif overall == 'Failed':
+                                        status.update(label="Pipeline thất bại!", state="error", expanded=True)
+                                        break
 
 with tab_predict:
     st.header("Batch Prediction")
@@ -68,6 +110,8 @@ with tab_predict:
                 st.success("Job created successfully!")
                 st.info(f"**Job Name:** {res['details']['TransformJobName']}")
                 st.write(f"Results will be saved to: `{res['details']['OutputS3']}`")
+            else:
+                st.error("Failed to create batch prediction job. Please check backend connection.")
 
 with tab_admin:
     st.header("Model Governance")

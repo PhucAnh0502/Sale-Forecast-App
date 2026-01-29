@@ -65,3 +65,30 @@ class ModelService:
             }
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
+        
+    async def get_pipeline_steps_status(self, execution_arn: str):
+        try:
+            response = self.sm_client.list_pipeline_execution_steps(
+                PipelineExecutionArn=execution_arn,
+                SortOrder='Ascending'
+            )
+
+            steps = []
+            for step in response.get('PipelineExecutionSteps', []):
+                steps.append({
+                    "step_name": step['StepName'],
+                    "step_status": step['StepStatus'],
+                    "start_time": step['StartTime'].strftime("%Y-%m-%d %H:%M:%S") if 'StartTime' in step else None,
+                    "end_time": step['EndTime'].strftime("%Y-%m-%d %H:%M:%S") if 'EndTime' in step else None,
+                })
+
+            execution_info = self.sm_client.describe_pipeline_execution(
+                PipelineExecutionArn=execution_arn
+            )
+
+            return {
+                "overall_status": execution_info['PipelineExecutionStatus'],
+                "steps": steps
+            }
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))

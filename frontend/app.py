@@ -8,10 +8,7 @@ model_service = ModelService()
 
 st.set_page_config(page_title="Sales Forecast Application", layout="wide")
 
-with st.sidebar:
-    st.image("assets/MegazoneLogo.svg", width=200)
-    st.title("Sales Forecast App")
-
+st.image("assets/MegazoneLogo.svg", width=300)
 st.title("Sales Forecast Application Dashboard")
 
 tab_data, tab_train, tab_predict, tab_admin = st.tabs([

@@ -39,14 +39,6 @@ class ForecastService:
             print(f"Error batch prediction: {e}")
             return None
     
-    def get_s3_inputs(self):
-        try:
-            response = self.client.get_json("/s3-inputs")
-            return response.json() if response.status_code == 200 else None
-        except Exception as e:
-            print(f"Error getting S3 inputs: {e}")
-            return None
-    
     def stream_train_progress(self, execution_arn):
         try:
             url = f"{self.client.forecast_url}/train-progress/{execution_arn}"

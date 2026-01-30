@@ -1,6 +1,5 @@
 import streamlit as st
-from services.forecast_services import ForecastService
-from services.model_services import ModelService
+from services import ForecastService, ModelService, S3Service
 import json
 
 def _to_float(value, default=0.0):
@@ -11,6 +10,7 @@ def _to_float(value, default=0.0):
 
 forecast_service = ForecastService()
 model_service = ModelService()
+s3_service = S3Service()
 
 st.set_page_config(page_title="Sales Forecast Application", layout="wide")
 
@@ -29,7 +29,7 @@ with tab_data:
         accept_multiple_files=True
     )
     if uploaded_files and st.button("Start Ingestion", type="primary"):
-        with st.spinner(f"Đang tải {len(uploaded_files)} file lên S3 Raw..."):
+        with st.spinner(f"Uploading {len(uploaded_files)} files to S3 Raw..."):
             res = forecast_service.upload_data(uploaded_files)
             if res:
                 st.success(res["message"])
@@ -37,6 +37,30 @@ with tab_data:
                     st.write(f"{item['filename']} -> `{item['s3_uri']}`")
             else:
                 st.error("Failed to upload files. Please check backend connection.")
+    
+    st.header("S3 Data Explorer")
+    
+    bucket_options = {
+        "Raw Data": "raw",
+        "Processed Data": "processed",
+        "Feature Store": "feature-store"
+    }
+    
+    bucket_display = st.selectbox(
+        "Choose your bucket:",
+        list(bucket_options.keys()),
+        key="bucket_selector"
+    )
+    
+    bucket_option = bucket_options[bucket_display]
+
+    files = s3_service.get_bucket_files(bucket_option)
+    if files:
+        import pandas as pd
+        df = pd.DataFrame(files)
+        st.table(df) 
+    else:
+        st.info("No files found or the bucket is empty.")
 
 with tab_train:
     st.header("ML Pipeline Orchestration")
@@ -116,7 +140,7 @@ with tab_predict:
     st.header("Batch Prediction")
     
     models_response = model_service.get_approved_models()
-    s3_response = forecast_service.get_s3_inputs()
+    s3_response = s3_service.get_s3_inputs()
 
     approved_models = models_response.get("approved_models", []) if models_response else []
     s3_files = s3_response.get("s3_inputs", []) if isinstance(s3_response, dict) else (s3_response if isinstance(s3_response, list) else [])
@@ -208,6 +232,17 @@ with tab_admin:
         for m in pending:
             with st.expander(f"Model Version {m['version']} - {m['creation_time']}"):
                 st.write(f"ARN: `{m['arn']}`")
+                if "metrics" in m and "regression_metrics" in m["metrics"]:
+                    st.write("### Performance Metrics")
+                    metrics = m["metrics"]["regression_metrics"]
+                    c1, c2, c3, c4 = st.columns(4)
+                    c1.metric("MSE", f"{metrics.get('mse', {}).get('value', 0):.4f}")
+                    c2.metric("MAE", f"{metrics.get('mae', {}).get('value', 0):.2f}")
+                    c3.metric("R²", f"{metrics.get('r2', {}).get('value', 0):.4f}")
+                    c4.metric("MAPE", f"{metrics.get('mape', {}).get('value', 0):.1f}%")
+                else:
+                    st.warning("No metrics available for this version.")
+                st.divider()
                 cmt = st.text_area("Review Comment", key=f"cmt_{m['version']}")
                 btn_c1, btn_c2, empty_r = st.columns([1, 1, 6], gap="small")
                 with btn_c1:

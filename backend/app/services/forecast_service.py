@@ -7,7 +7,7 @@ class ForecastService:
     def __init__(self):
         self.raw_data_bucket = os.getenv('S3_RAW_DATA_BUCKET')
         self.artifact_bucket = os.getenv('S3_ARTIFACTS_BUCKET')
-        self.feature_store_bucket = os.getenv('S3_FEATURE_STORE_BUCKET')
+        self.feature_store_bucket = os.getenv('S3_FEATURE_STORE_DATA_BUCKET')
         
         self.s3_client = boto3.client('s3', region_name=os.getenv('AWS_REGION', 'us-east-1'))
         self.pipeline_orchestrator = PipelineOrchestrator()
@@ -35,11 +35,3 @@ class ForecastService:
             output_s3_uri=output_path
         )
         return job_info
-    
-    async def list_s3_inputs(self):
-        response = self.s3_client.list_objects_v2(Bucket=self.feature_store_bucket, Prefix='/')
-        s3_inputs = []
-        if 'Contents' in response:
-            for obj in response['Contents']:
-                s3_inputs.append(f"s3://{self.feature_store_bucket}/{obj['Key']}")
-        return s3_inputs

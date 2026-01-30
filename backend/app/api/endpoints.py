@@ -3,9 +3,8 @@ import json
 import os
 from fastapi import APIRouter, Depends, HTTPException, File, UploadFile
 from pydantic import BaseModel
-from app.services.forecast_service import ForecastService
+from app.services import ForecastService, ModelService, S3Service 
 from typing import List
-from app.services.model_service import ModelService
 from sse_starlette.sse import EventSourceResponse
 
 router = APIRouter()
@@ -15,6 +14,9 @@ def get_forecast_service():
 
 def get_model_service():
     return ModelService()
+
+def get_s3_service():
+    return S3Service()
 
 class PredictRequest(BaseModel):
     model_arn: str
@@ -39,7 +41,7 @@ async def predict(request: PredictRequest, service: ForecastService = Depends(ge
     return {"message": "Prediction job created", "details": job_info}
 
 @router.get("/s3-inputs")
-async def list_s3_inputs(service: ForecastService = Depends(get_forecast_service)):
+async def list_s3_inputs(service: S3Service = Depends(get_s3_service)):
     s3_inputs = await service.list_s3_inputs()
     return {"s3_inputs": s3_inputs}
 
@@ -81,3 +83,8 @@ async def get_prediction_results(job_name: str, service: ForecastService = Depen
     """Get prediction results for a completed job"""
     # Real AWS implementation would read results from S3
     raise HTTPException(status_code=501, detail="Real implementation not yet available")
+
+@router.get("/list-files/{bucket_type}")
+async def get_s3_files(bucket_type: str, s3_service: S3Service = Depends(get_s3_service)):
+    files = await s3_service.list_bucket_files(bucket_type)
+    return {"bucket": bucket_type, "files": files}

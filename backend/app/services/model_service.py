@@ -16,16 +16,19 @@ class ModelService:
                 SortBy='CreationTime',
                 SortOrder='Descending'
             )
+            pending_models = []
 
-            pending_models = [
-                {
+            for m in response['ModelPackageSummaryList']:
+                arn = m['ModelPackageArn']
+                metrics = await self.get_model_metrics(arn)
+
+                pending_models.append({
                     "name": m['ModelPackageName'],
                     "version": m['ModelPackageVersion'],
-                    "arn": m['ModelPackageArn'],
-                    "creation_time": m['CreationTime'].strftime("%Y-%m-%d %H:%M:%S")
-                }
-                for m in response['ModelPackageSummaryList']
-            ]
+                    "arn": arn,
+                    "creation_time": m['CreationTime'].strftime("%Y-%m-%d %H:%M:%S"),
+                    "metrics": metrics
+                })
             return {"pending_models": pending_models}
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))

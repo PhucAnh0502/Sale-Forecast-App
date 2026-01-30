@@ -5,10 +5,11 @@ from app.infrastructure.aws_sagemaker.batch_predict import BatchPredictor
 
 class ForecastService:
     def __init__(self):
-        self.s3_client = boto3.client('s3')
         self.raw_data_bucket = os.getenv('S3_RAW_DATA_BUCKET')
         self.artifact_bucket = os.getenv('S3_ARTIFACTS_BUCKET')
         self.feature_store_bucket = os.getenv('S3_FEATURE_STORE_BUCKET')
+        
+        self.s3_client = boto3.client('s3', region_name=os.getenv('AWS_REGION', 'us-east-1'))
         self.pipeline_orchestrator = PipelineOrchestrator()
         self.batch_predictor = BatchPredictor()
 

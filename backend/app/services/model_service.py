@@ -4,8 +4,8 @@ from fastapi import HTTPException
 
 class ModelService:
     def __init__(self):
-        self.sm_client = boto3.client('sagemaker')
         self.group_name = "SalesForecastGroup"
+        self.sm_client = boto3.client('sagemaker', region_name=os.getenv('AWS_REGION', 'us-east-1'))
 
     async def list_pending_models(self):
         try:

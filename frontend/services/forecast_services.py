@@ -54,3 +54,19 @@ class ForecastService:
         except Exception as e:
             print(f"Error streaming train progress: {e}")
             return None
+    
+    def stream_prediction_progress(self, job_name):
+        try:
+            url = f"{self.client.forecast_url}/prediction-progress/{job_name}"
+            return requests.get(url, stream=True)
+        except Exception as e:
+            print(f"Error streaming prediction progress: {e}")
+            return None
+    
+    def get_prediction_results(self, job_name):
+        try:
+            response = self.client.get_json(f"/prediction-results/{job_name}")
+            return response.json() if response.status_code == 200 else None
+        except Exception as e:
+            print(f"Error getting prediction results: {e}")
+            return None

@@ -1,5 +1,6 @@
 import asyncio
 import json
+import os
 from fastapi import APIRouter, Depends, HTTPException, File, UploadFile
 from pydantic import BaseModel
 from app.services.forecast_service import ForecastService
@@ -23,7 +24,7 @@ class PredictRequest(BaseModel):
 async def upload(files: List[UploadFile] = File(...), service: ForecastService = Depends(get_forecast_service)):
     uploaded_urls = []
     for file in files:
-        s3_url = await service.upload_raw_data(file)
+        s3_url = await service.upload_raw_data(file.filename, await file.read())
         uploaded_urls.append({"filename": file.filename, "s3_uri": s3_url})
     return {"message": f"Successfully uploaded {len(uploaded_urls)} files", "data": uploaded_urls}
 
@@ -56,4 +57,27 @@ async def train_progress(execution_arn: str, service: ModelService = Depends(get
                 break
 
             await asyncio.sleep(5)
+    
     return EventSourceResponse(event_generator())
+
+@router.get("/prediction-progress/{job_name}")
+async def prediction_progress(job_name: str, service: ForecastService = Depends(get_forecast_service)):
+    """Stream prediction job progress"""
+    async def event_generator():
+        # Real AWS implementation would poll SageMaker transform job status
+        while True:
+            # TODO: Implement real transform job status check
+            yield {
+                "event": "update",
+                "data": json.dumps({"status": "Running", "message": "Checking job status..."})
+            }
+            await asyncio.sleep(5)
+            break
+    
+    return EventSourceResponse(event_generator())
+
+@router.get("/prediction-results/{job_name}")
+async def get_prediction_results(job_name: str, service: ForecastService = Depends(get_forecast_service)):
+    """Get prediction results for a completed job"""
+    # Real AWS implementation would read results from S3
+    raise HTTPException(status_code=501, detail="Real implementation not yet available")

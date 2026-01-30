@@ -53,6 +53,7 @@ with tab_train:
                         st.error("Failed to connect to pipeline stream.")
                     else:
                         step_label = st.empty()
+                        completed_steps = set() 
                         
                         for line in response.iter_lines():
                             if line:
@@ -68,8 +69,9 @@ with tab_train:
                                         
                                         if s_status == 'Executing':
                                             step_label.write(f"Đang chạy: **{name}**")
-                                        elif s_status == 'Succeeded':
-                                            st.write(f"Hoàn thành: **{name}**")
+                                        elif s_status == 'Succeeded' and name not in completed_steps:
+                                            st.write(f"✅ Hoàn thành: **{name}**")
+                                            completed_steps.add(name)
                                     
                                     if overall == 'Succeeded':
                                         status.update(label="Pipeline hoàn thành thành công!", state="complete", expanded=False)
@@ -82,8 +84,11 @@ with tab_train:
 with tab_predict:
     st.header("Batch Prediction")
     
-    approved_models = model_service.get_approved_models()
-    s3_files = forecast_service.get_s3_inputs()
+    models_response = model_service.get_approved_models()
+    s3_response = forecast_service.get_s3_inputs()
+
+    approved_models = models_response.get("approved_models", []) if models_response else []
+    s3_files = s3_response.get("s3_inputs", []) if isinstance(s3_response, dict) else (s3_response if isinstance(s3_response, list) else [])
 
     col_sel1, col_sel2 = st.columns(2)
     
@@ -104,18 +109,70 @@ with tab_predict:
             selected_input_path = None
     
     if st.button("Execute Forecast", type="primary", disabled=not (selected_model_arn and selected_input_path)):
-        with st.spinner("Initializing SageMaker Batch Transform..."):
-            res = forecast_service.batch_prediction(selected_model_arn, selected_input_path)
-            if res:
-                st.success("Job created successfully!")
-                st.info(f"**Job Name:** {res['details']['TransformJobName']}")
-                st.write(f"Results will be saved to: `{res['details']['OutputS3']}`")
-            else:
-                st.error("Failed to create batch prediction job. Please check backend connection.")
+        res = forecast_service.batch_prediction(selected_model_arn, selected_input_path)
+        if res:
+            job_name = res['details']['TransformJobName']
+            st.success("Job created successfully!")
+            st.info(f"**Job Name:** {job_name}")
+            st.write(f"Results will be saved to: `{res['details']['OutputS3']}`")
+            
+            with st.status("Running Prediction Job...", expanded=True) as status:
+                response = forecast_service.stream_prediction_progress(job_name)
+                
+                if response:
+                    progress_placeholder = st.empty()
+                    message_placeholder = st.empty()
+                    
+                    for line in response.iter_lines():
+                        if line:
+                            decoded_line = line.decode('utf-8')
+                            if decoded_line.startswith("data: "):
+                                data = json.loads(decoded_line[6:])
+                                progress = data.get('progress_percentage', 0)
+                                msg = data.get('message', '')
+                                stage = data.get('status', '')
+                                
+                                progress_placeholder.progress(progress / 100)
+                                message_placeholder.write(f"**{stage}**: {msg}")
+                                
+                                if progress >= 100:
+                                    status.update(label="Prediction Completed!", state="complete", expanded=False)
+                                    st.balloons()
+                                    
+                                    # Get prediction results
+                                    results = forecast_service.get_prediction_results(job_name)
+                                    if results:
+                                        st.subheader("📊 Prediction Results")
+                                        
+                                        col1, col2, col3 = st.columns(3)
+                                        with col1:
+                                            st.metric("Total Predictions", results['summary']['total_predictions'])
+                                        with col2:
+                                            st.metric("Avg Confidence", f"{results['summary']['avg_confidence']*100:.1f}%")
+                                        with col3:
+                                            st.metric("Completed At", results['summary']['completion_time'])
+                                        
+                                        # Display predictions table
+                                        import pandas as pd
+                                        df = pd.DataFrame(results['predictions'])
+                                        st.dataframe(df, use_container_width=True)
+                                        
+                                        # Download button
+                                        csv = df.to_csv(index=False)
+                                        st.download_button(
+                                            label="📥 Download Results (CSV)",
+                                            data=csv,
+                                            file_name=f"{job_name}_predictions.csv",
+                                            mime="text/csv"
+                                        )
+                                    break
+        else:
+            st.error("Failed to create batch prediction job. Please check backend connection.")
 
 with tab_admin:
     st.header("Model Governance")
-    pending = model_service.get_pending_models()
+    pending_response = model_service.get_pending_models()
+    pending = pending_response.get("pending_models", []) if pending_response else []
     
     if not pending:
         st.write("No models pending approval.")
@@ -124,12 +181,13 @@ with tab_admin:
             with st.expander(f"Model Version {m['version']} - {m['creation_time']}"):
                 st.write(f"ARN: `{m['arn']}`")
                 cmt = st.text_area("Review Comment", key=f"cmt_{m['version']}")
-                btn_c1, btn_c2 = st.columns(5)
+                btn_c1, btn_c2, empty_r = st.columns([1, 1, 6], gap="small")
                 with btn_c1:
-                    if st.button("Approve", key=f"app_{m['version']}", type="primary"):
+                    if st.button("Approve", key=f"app_{m['version']}", type="primary", use_container_width=True):
                         model_service.approve_model(m['arn'], cmt)
                         st.rerun()
+
                 with btn_c2:
-                    if st.button("Reject", key=f"rej_{m['version']}", type="secondary"):
+                    if st.button("Reject", key=f"rej_{m['version']}", type="secondary", use_container_width=True):
                         model_service.reject_model(m['arn'], cmt)
                         st.rerun()

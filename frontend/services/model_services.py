@@ -6,11 +6,11 @@ class ModelService:
 
     def get_pending_models(self):
         response = self.client.get_json("/pending", is_model=True)
-        return response.json() if response.status_code == 200 else []
+        return response.json() if response.status_code == 200 else {"pending_models": []}
     
     def get_approved_models(self):
         response = self.client.get_json("/approved", is_model=True)
-        return response.json() if response.status_code == 200 else []
+        return response.json() if response.status_code == 200 else {"approved_models": []}
     
     def approve_model(self, model_arn, comment):
         payload = {

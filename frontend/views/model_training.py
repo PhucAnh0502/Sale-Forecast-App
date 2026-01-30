@@ -13,7 +13,7 @@ def render_training_tab(forecast_service, model_service):
             return
 
         execution_arn = res.get('execution_arn')
-        st.info(f"Pipeline Execution Started")
+        st.info(f"Pipeline Execution Started: {execution_arn}")
         
         with st.status("Running Pipeline...", expanded=True) as status:
             response = forecast_service.stream_train_progress(execution_arn)
@@ -26,12 +26,16 @@ def render_training_tab(forecast_service, model_service):
             
             for line in response.iter_lines():
                 if not line: continue
-                data = json.loads(line.decode('utf-8')[6:])
+                try:
+                    data = json.loads(line.decode('utf-8')[6:])
+                except (json.JSONDecodeError, UnicodeDecodeError):
+                    continue
+                    
                 steps = data.get('steps', [])
                 overall = data.get('overall_status')
 
                 for step in steps:
-                    name, s_status = step['step_name'], step['status']
+                    name, s_status = step['step_name'], step.get('step_status', step.get('status', ''))
                     if s_status == 'Executing':
                         step_label.write(f"Running: **{name}**")
                     elif s_status == 'Succeeded' and name not in completed_steps:

@@ -1,6 +1,7 @@
 import os
 import boto3
 from fastapi import HTTPException
+import base64
 
 class S3Service:
     def __init__(self):
@@ -48,5 +49,25 @@ class S3Service:
                 for obj in response['Contents']:
                     s3_inputs.append(f"s3://{bucket_name}/{obj['Key']}")
             return s3_inputs
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+        
+    async def get_file_content(self, bucket_type: str, file_key: str):
+        env_mapping = {
+            "raw": "S3_RAW_DATA_BUCKET",
+            "processed": "S3_PROCESSED_DATA_BUCKET",
+            "feature-store": "S3_FEATURE_STORE_DATA_BUCKET",
+            "artifacts": "S3_ARTIFACTS_BUCKET"
+        }
+        
+        env_var_name = env_mapping.get(bucket_type.lower())
+        bucket_name = os.getenv(env_var_name)
+        if not bucket_name:
+            raise HTTPException(status_code=500, detail=f"Environment variable {env_var_name} is not configured")
+
+        try:
+            response = self.s3_client.get_object(Bucket=bucket_name, Key=file_key)
+            raw_data = response['Body'].read()
+            return base64.b64encode(raw_data).decode('utf-8')
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))

@@ -28,7 +28,10 @@ def render_inference_tab(forecast_service, model_service, s3_service):
             _run_prediction_stream(forecast_service, res['details'])
 
 def _run_prediction_stream(forecast_service, details):
-    job_name = details['TransformJobName']
+    job_name = details.get('TransformJobName') or details.get('job_name')
+    if not job_name:
+        st.error("Prediction job name not found in response.")
+        return
     st.success(f"Job Created: {job_name}")
     
     with st.status("Running Prediction...", expanded=True) as status:
@@ -37,8 +40,18 @@ def _run_prediction_stream(forecast_service, details):
         msg_box = st.empty()
         
         for line in response.iter_lines():
-            if not line: continue
-            data = json.loads(line.decode('utf-8')[6:])
+            if not line:
+                continue
+            try:
+                decoded = line.decode('utf-8')
+            except UnicodeDecodeError:
+                continue
+            if not decoded.startswith("data:"):
+                continue
+            try:
+                data = json.loads(decoded[5:].strip())
+            except json.JSONDecodeError:
+                continue
             prog = data.get('progress_percentage', 0)
             progress_bar.progress(prog / 100)
             msg_box.write(f"**{data.get('status')}**: {data.get('message')}")

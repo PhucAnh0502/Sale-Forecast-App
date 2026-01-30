@@ -19,3 +19,11 @@ class S3Service:
         except Exception as e:
             print(f"Error getting S3 inputs: {e}")
             return None
+        
+    def get_file_content(self, bucket_type, file_key):
+        try:
+            response = self.client.get_json(f"/file-content?bucket_type={bucket_type}&file_key={file_key}")
+            return response.json().get("content") if response.status_code == 200 else None
+        except Exception as e:
+            print(f"Error getting file content: {e}")
+            return None

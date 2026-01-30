@@ -1,9 +1,8 @@
 import asyncio
 import json
-import os
 from fastapi import APIRouter, Depends, HTTPException, File, UploadFile
 from pydantic import BaseModel
-from app.services import ForecastService, ModelService, S3Service 
+from app.services import ForecastService, ModelService, S3Service
 from typing import List
 from sse_starlette.sse import EventSourceResponse
 
@@ -45,7 +44,7 @@ async def list_s3_inputs(service: S3Service = Depends(get_s3_service)):
     s3_inputs = await service.list_s3_inputs()
     return {"s3_inputs": s3_inputs}
 
-@router.get("/train-progress/{execution_arn}")
+@router.get("/train-progress/{execution_arn:path}")
 async def train_progress(execution_arn: str, service: ModelService = Depends(get_model_service)):
     async def event_generator():
         while True:
@@ -88,3 +87,8 @@ async def get_prediction_results(job_name: str, service: ForecastService = Depen
 async def get_s3_files(bucket_type: str, s3_service: S3Service = Depends(get_s3_service)):
     files = await s3_service.list_bucket_files(bucket_type)
     return {"bucket": bucket_type, "files": files}
+
+@router.get("/file-content")
+async def get_file_content(bucket_type:str, file_key: str, s3_service: S3Service = Depends(get_s3_service)):
+    content = await s3_service.get_file_content(bucket_type, file_key)
+    return {"file_key": file_key, "content": content}

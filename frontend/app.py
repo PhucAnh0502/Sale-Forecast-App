@@ -3,6 +3,12 @@ from services.forecast_services import ForecastService
 from services.model_services import ModelService
 import json
 
+def _to_float(value, default=0.0):
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
 forecast_service = ForecastService()
 model_service = ModelService()
 
@@ -46,7 +52,7 @@ with tab_train:
             if execution_arn:
                 st.info(f"Pipeline Execution Started")
                 
-                with st.status("Đang thực thi Pipeline...", expanded=True) as status:
+                with st.status("Running Pipeline...", expanded=True) as status:
                     response = forecast_service.stream_train_progress(execution_arn)
                     
                     if response is None:
@@ -68,17 +74,42 @@ with tab_train:
                                         s_status = step['status']
                                         
                                         if s_status == 'Executing':
-                                            step_label.write(f"Đang chạy: **{name}**")
+                                            step_label.write(f"Running: **{name}**")
                                         elif s_status == 'Succeeded' and name not in completed_steps:
-                                            st.write(f"✅ Hoàn thành: **{name}**")
+                                            st.write(f"Done: **{name}**")
                                             completed_steps.add(name)
                                     
                                     if overall == 'Succeeded':
-                                        status.update(label="Pipeline hoàn thành thành công!", state="complete", expanded=False)
-                                        st.balloons()
+                                        status.update(label="Pipeline completed successfully!", state="complete", expanded=False)
+
+                                        pending_res = model_service.get_pending_models()
+                                        pending_list = pending_res.get("pending_models", []) if pending_res else []
+
+                                        if pending_list:
+                                            latest_model_arn = pending_list[0]['arn']
+                                            metrics_data =  model_service.get_metrics(latest_model_arn)
+                                        
+                                        if metrics_data:
+                                            st.divider()
+                                            st.subheader("Model Evaluation Metrics")
+
+                                            reg = metrics_data.get('regression_metrics', {})
+                                            col1, col2, col3, col4 = st.columns(4)
+                                            col1.metric("MSE", f"{_to_float(reg.get('mse', {}).get('value', 0)):.4f}")
+                                            col2.metric("MAE", f"{_to_float(reg.get('mae', {}).get('value', 0)):.4f}")
+                                            col3.metric("R²", f"{_to_float(reg.get('r2', {}).get('value', 0)):.4f}")
+                                            col4.metric("MAPE", f"{_to_float(reg.get('mape', {}).get('value', 0)):.2f}%")
+
+                                            importance = metrics_data.get('feature_importance', {})
+                                            if importance:
+                                                st.write("**Feature Importance:**")
+                                                import pandas as pd
+                                                fi_df = pd.DataFrame(list(importance.items()), columns=['Feature', 'Weight']).sort_values(by='Weight', ascending=True)
+                                                st.bar_chart(fi_df.set_index('Feature')) 
+
                                         break
                                     elif overall == 'Failed':
-                                        status.update(label="Pipeline thất bại!", state="error", expanded=True)
+                                        status.update(label="Pipeline failed!", state="error", expanded=True)
                                         break
 
 with tab_predict:
@@ -137,12 +168,11 @@ with tab_predict:
                                 
                                 if progress >= 100:
                                     status.update(label="Prediction Completed!", state="complete", expanded=False)
-                                    st.balloons()
                                     
                                     # Get prediction results
                                     results = forecast_service.get_prediction_results(job_name)
                                     if results:
-                                        st.subheader("📊 Prediction Results")
+                                        st.subheader("Prediction Results")
                                         
                                         col1, col2, col3 = st.columns(3)
                                         with col1:
@@ -151,16 +181,14 @@ with tab_predict:
                                             st.metric("Avg Confidence", f"{results['summary']['avg_confidence']*100:.1f}%")
                                         with col3:
                                             st.metric("Completed At", results['summary']['completion_time'])
-                                        
-                                        # Display predictions table
+
                                         import pandas as pd
                                         df = pd.DataFrame(results['predictions'])
                                         st.dataframe(df, use_container_width=True)
-                                        
-                                        # Download button
+
                                         csv = df.to_csv(index=False)
                                         st.download_button(
-                                            label="📥 Download Results (CSV)",
+                                            label="Download Results (CSV)",
                                             data=csv,
                                             file_name=f"{job_name}_predictions.csv",
                                             mime="text/csv"

@@ -33,3 +33,7 @@ async def reject_model(request: ModelRequest, service: ModelService = Depends(ge
         status='Rejected',
         comment='Model manually rejected.'
     )
+
+@router.get("/metrics/{model_package_arn:path}")
+async def get_model_metrics(model_package_arn: str, service: ModelService = Depends(get_model_service)):
+    return await service.get_model_metrics(model_package_arn)

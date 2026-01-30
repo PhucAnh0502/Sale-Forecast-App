@@ -4,7 +4,8 @@ import os
 import json
 import pandas as pd
 import awswrangler as wr
-from sklearn.metrics import mean_squared_error
+from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
+import numpy as np
 
 def handler():
     model_path = "opt/ml/processing/model/model.tar.gz"
@@ -21,13 +22,18 @@ def handler():
 
     predictions = model.predict(X_test)
     mse = mean_squared_error(y_test, predictions)
+    mae = mean_absolute_error(y_test, predictions)
+    r2 = r2_score(y_test, predictions)
+    mape = np.mean(np.abs((y_test - predictions) / y_test)) * 100
 
     report_dict = {
         "regression_metrics": {
-            "mse": {
-                "value": mse,
-            }
-        }
+            "mse": {"value": mse},
+            "mae": {"value": mae},
+            "r2": {"value": r2},
+            "mape": {"value": mape}
+        },
+        "feature_importance": model.get_booster().get_score(importance_type='weight')
     }
 
     output_dir = "opt/ml/processing/evaluation/"

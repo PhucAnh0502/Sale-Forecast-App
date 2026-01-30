@@ -1,6 +1,7 @@
 import boto3
 import os
 from fastapi import HTTPException
+import json
 
 class ModelService:
     def __init__(self):
@@ -90,5 +91,28 @@ class ModelService:
                 "overall_status": execution_info['PipelineExecutionStatus'],
                 "steps": steps
             }
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+        
+    async def get_model_metrics(self, model_package_arn: str):
+        try:
+            response = self.sm_client.describe_model_package(
+                ModelPackageName=model_package_arn
+            )
+
+            metrics_s3_uri = response.get('ModelMetrics', {}).get('ModelStatistics', {}).get('S3Uri')
+
+            if not metrics_s3_uri:
+                return {"message": "No metrics found for this model."}
+            
+            path_parts = metrics_s3_uri.replace("s3://", "").split("/", 1)
+            bucket = path_parts[0]
+            key="/".join(path_parts[1:])
+
+            s3_client = boto3.client('s3')
+            s3_res = s3_client.get_object(Bucket=bucket, Key=key)
+            content = s3_res['Body'].read().decode('utf-8')
+
+            return json.loads(content)
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))

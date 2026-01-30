@@ -27,3 +27,7 @@ class ModelService:
         }
         response = self.client.post_json("/reject", json_data=payload, is_model=True)
         return response.status_code == 200
+    
+    def get_metrics(self, model_arn):
+        response = self.client.get_json(f"/metrics/{model_arn}", is_model=True)
+        return response.json() if response.status_code == 200 else None
